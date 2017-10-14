@@ -1,0 +1,15 @@
+canvas{
+    border: 1px solid black;    
+    width: 60%;
+    height: 60%;
+    margin-top: 20px;
+}
+
+input{
+    margin-top: 50px;
+}
+
+h1{
+    font-family: Bookman;
+    font-size: 40px;
+}
