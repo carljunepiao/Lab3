@@ -1,15 +1,28 @@
 canvas{
-    border: 1px solid black;    
-    width: 60%;
-    height: 60%;
-    margin-top: 20px;
+    border: 1px solid black;
+    margin-top: 10px;
 }
 
 input{
-    margin-top: 50px;
+    margin-top: 10px;
+    color: white;
 }
 
 h1{
-    font-family: Bookman;
+    font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+    color: white;
     font-size: 40px;
+    margin-top: 0px;
+    margin-bottom: 0px;
 }
+
+body{
+    background-color: black;
+}
+
+#first{
+    margin-top: 10px;
+    /* margin-left: 550px; */
+    margin-left: 400px;    
+}
+
