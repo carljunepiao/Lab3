@@ -10,7 +10,10 @@ var btnBest = document.getElementById("best");
 var jobList = [], memoryList = [];
 var jobListSize, memoryListSize;
 
-var waitingQueue = [], processingQueue = [], timer = 0;
+var waitingQueue = [], processingQueue = [];
+var timer = 0;
+
+var misFit = []; //Store too big job sizes
 
 function Job(id, time, size, status, used) {
     this.id = parseInt(id);
@@ -58,19 +61,18 @@ document.getElementById('file').onchange = function(){
         jobListSize = jobList.length;
         memoryListSize = memoryList.length;
         
-        //Bad Testing
-        console.log(jobList);
-        console.log(memoryList);
+        // //Bad Testing
+        // console.log(jobList);
+        // console.log(memoryList);
     };
     
     //First-fit Algorithm
     function Firstfit(){
         console.log("First-fit Algorithm");
-
         for(var i = 0; i < jobListSize; i++){
             job = jobList[i];
 
-            for(var j = 0; j < memoryListSize; j++){                
+            for(var j = 0; j < memoryListSize; j++){
                 memory = memoryList[j];
             
                 if(memory.size >= job.size && memory.status === "Free" && job.status === "Inactive" && job.used === false){
@@ -86,14 +88,47 @@ document.getElementById('file').onchange = function(){
             }
         }
 
-        // setInterval(ProcessJobsInMemory, 1000);
-        // if(waitingQueue.length < 0){
-        //     clearTimeout(ProcessJobsInMemory);
-        // }
-
         //Bad Testing
-        console.log(processingQueue);
-        console.log(waitingQueue);
+            console.log(processingQueue);
+            console.log(waitingQueue);
+
+        //Process Jobs
+            setInterval(ProcessJobsInMemory, 1000);
+            // ProcessJobsInMemory();
+
+        // //Check Waiting Queue
+        //     CheckWaitingQueue();
+    }
+
+    function ProcessJobsInMemory(){
+        TableDesign();
+
+        //Output Processing Jobs
+        for(var i = 0; i < processingQueue.length; i++){
+            pJob = processingQueue[i];
+            context.fillText("Job " + pJob.id, width/8, height/7 + (i*20));
+            context.fillText(pJob.size, width/2.1, height/7 + (i*20));            
+        }
+
+        //Output Waiting Jobs
+        for(var i = 0; i < waitingQueue.length; i++){
+            wJob = waitingQueue[i];
+            context.fillText("Job " + wJob.id, width/1.25, height/9 + (i*20));            
+        }
+
+        for(var i = 0; i < processingQueue.length; i++){
+            if(processingQueue[i].time === timer){
+                console.log("Job "+ i + ":"+ processingQueue[i].time + ", "+ "Timer: " + timer);
+                // if(processingQueue[i])
+                //     processingQueue.splice(i, 1);
+            }
+        }
+        // console.log(processingQueue);
+        if(processingQueue.length === 0){
+            console.log("ProcessingQueue is empty");
+        }
+
+        timer++;
     }
 
     //Worst-fit Algorithm
@@ -107,79 +142,58 @@ document.getElementById('file').onchange = function(){
     }
 
     //Helper Functions
-    function Test()
-    {
-        console.log("---------------------------------------------");        
-        console.log("LIST OF JOBS");
-        console.log("Jobs size: "+ jobListSize);
-        console.log("---------------------------------------------");
-        console.log(jobList);
-        console.log("---------------------------------------------\n");
+        function Reset()
+        {
+            for(var i = 0; i < jobListSize; i++){
+                job = jobList[i];
+                job.status = "Inactive";
+                job.used = false;
+            }
 
-        console.log("---------------------------------------------");        
-        console.log("LIST OF MEMORY");
-        console.log("MEMORY size: "+ memoryListSize);
-        console.log("---------------------------------------------");
-        console.log(memoryList);
-        console.log("---------------------------------------------\n\n");
+            for(var i = 0; i < memoryListSize; i++){
+                memory = memoryList[i];
+                memory.status = "Free";
+            }
 
-        console.log("Processing QUEUE:");
-        console.log(processingQueue);
-
-        console.log("\n\nWaiting QUEUE:");
-        console.log(waitingQueue);
-    }
-
-    function ResetStatus()
-    {
-        for(var i = 0; i < jobListSize; i++){
-            job = jobList[i];
-            job.status = "Inactive";
-            job.used = false;
+            waitingQueue = [];
         }
 
-        for(var i = 0; i < memoryListSize; i++){
-            memory = memoryList[i];
-            memory.status = "Free";
-        }
-    }
+        function CheckWaitingQueue(){
+            //Check if job size is too big, then store in misfit
+            var check = false;
+            for(var i = 0; i < waitingQueue.length; i++){
+                for(var j = 0; j < memoryListSize; j++){
+                    memory = memoryList[j];
 
-    function ProcessJobsInMemory(){        
-
-        while(waitingQueue.length > 0){
-
-        }
-        for(var i = 0; i < processingQueue.length; i++){
-
-            if(processingQueue[i].time === timer){
-
-                var doneJob = processingQueue.indexOf(processingQueue[i]);
-                console.log(doneJob);
-                if(doneJob > -1){
-                    processingQueue.splice(doneJob, 1);
+                    if(waitingQueue[i].size > memory.size){
+                        check = true;
+                    }
                 }
+                if(check === true){
+                    misFit.push(waitingQueue[i]);
+                }
+            }
+
+            if(misFit.length !== 0){
+                console.log("Still have: " + misFit.length + " jobs not processed.");
             }
         }
 
-        timer++;
-        
-        //Bad testing
-        // console.log(timer);
-        // console.log(processingQueue);
-    }
-
     //Button Events
-    btnFirst.onclick = function(){
-        Firstfit();
-    }
+        btnFirst.onclick = function(){
+            Reset();
+            Firstfit();
+        }
 
-    btnWorst.onclick = function(){
-        Worstfit();
-    }
+        btnWorst.onclick = function(){
+            Reset();
+            Worstfit();
+        }
 
-    btnBest.onclick = function(){
-        Bestfit();
-    }
+        btnBest.onclick = function(){
+            Reset();
+            Bestfit();
+        }
 
     reader.readAsText(file);
 };
@@ -193,15 +207,32 @@ function TableDesign(){
     context.fillStyle = "black";
     context.font = "16px Calibri";    
     context.fillText("PROCESSING JOBS IN MEMORY LIST",width/10,height/26);
-    context.fillText("WAITING JOB LIST",width/1.5,height/26);
+    context.fillText("WAITING JOB LIST",width/1.3,height/26);
 
-    context.moveTo(width/2,0);
-    context.lineTo(width/2,height);
-    context.stroke();
-
+    context.fillText("JOBS",width/8,height/12);
+    context.fillText("SIZE",width/2.1,height/12);
+    
+    //Horizontal Line #1: Main Line    
     context.moveTo(0,height/19);
     context.lineTo(width,height/19);
     context.stroke();
+    
+    //Horizontal Line #2: Main Line 2
+    context.moveTo(0,height/10);
+    context.lineTo(width/1.5,height/10);
+    context.stroke();
+
+    //Vertical line # 2: Main Line    
+    context.moveTo(width/1.5,0);
+    context.lineTo(width/1.5,height);
+    context.stroke();
+    
+    //Vertical line #1: Memory List
+    context.moveTo(width/3,height/19);
+    context.lineTo(width/3,height);
+    context.stroke();
+
+    context.fillText("Timer: " +timer,width/50,height/26);    
 }
 
 TableDesign();
