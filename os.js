@@ -6,6 +6,7 @@ var height = canvas.height;
 var btnFirst = document.getElementById("first");
 var btnWorst = document.getElementById("worst");
 var btnBest = document.getElementById("best");
+var btnEvaluate = document.getElementById("evaluate");
 
 var jobList = [], memoryList = [];
 var jobListSize, memoryListSize;
@@ -13,14 +14,14 @@ var jobListSize, memoryListSize;
 var waitingQueue = [], processingQueue = [];
 var timer = 0;
 
-var misFit = []; //Store too big job sizes
-
-function Job(id, time, size, status, used) {
+function Job(id, time, size, status, used, memoryId, fragment) {
     this.id = parseInt(id);
     this.time = parseInt(time);
     this.size = parseInt(size);
     this.status = status;
     this.used = used;
+    this.memoryId = memoryId;
+    this.fragment = fragment;
 }
 
 function Memory(id, size, status){
@@ -50,7 +51,7 @@ document.getElementById('file').onchange = function(){
 
         for(var i = 0; i < tempJobList.length; i++){
             temp = tempJobList[i].split(" ");
-            jobList[i] = new Job(temp[0], temp[1], temp[2], "Inactive", false);
+            jobList[i] = new Job(temp[0], temp[1], temp[2], "Inactive", false, 0, 0);
         }
 
         for(var i = 0; i < tempMemList.length; i++){
@@ -60,90 +61,139 @@ document.getElementById('file').onchange = function(){
 
         jobListSize = jobList.length;
         memoryListSize = memoryList.length;
-        
-        // //Bad Testing
-        // console.log(jobList);
-        // console.log(memoryList);
     };
     
-    //First-fit Algorithm
-    function Firstfit(){
-        console.log("First-fit Algorithm");
-        for(var i = 0; i < jobListSize; i++){
-            job = jobList[i];
+    //ALGORITHMS
+        //First-fit Algorithm
+        function Firstfit(){
+            console.log("_________________________________________");
+            console.log("First-fit Algorithm"); //Remove afterwards
 
-            for(var j = 0; j < memoryListSize; j++){
-                memory = memoryList[j];
+            InitializeJobsMemoryList();
+            var loopFirst = setInterval(ProcessJobsInMemory, 1000);
+
+            //Bad Testing
+                // console.log(processingQueue);
+                // console.log(waitingQueue);
+        }
+
+        //Worst-fit Algorithm
+        function Worstfit(){
+            console.log("_________________________________________");
+            console.log("Worst-fit Algorithm"); //Remove afterwards
+
+            memoryList.sort(DecreasingOrder);
+            InitializeJobsMemoryList();
+
+            var loopWorst = setInterval(ProcessJobsInMemory, 1000);
             
-                if(memory.size >= job.size && memory.status === "Free" && job.status === "Inactive" && job.used === false){
-                    memory.status = "Occupied";
-                    job.status = "Active";
-                    job.used = true;
-                    processingQueue.push(job);
-                }
-            }
-
-            if(job.status === "Inactive"){
-                waitingQueue.push(job);
-            }
+            //Bad Testing
+                console.log(processingQueue);
+                console.log(waitingQueue);
         }
 
-        //Bad Testing
-            console.log(processingQueue);
-            console.log(waitingQueue);
+        //Best-fit Algorithm
+        function Bestfit(){
+            console.log("_________________________________________");
+            console.log("Best-fit Algorithm");
 
-        //Process Jobs
-            setInterval(ProcessJobsInMemory, 1000);
-            // ProcessJobsInMemory();
+            memoryList.sort(IncreasingOrder);
+            InitializeJobsMemoryList();
 
-        // //Check Waiting Queue
-        //     CheckWaitingQueue();
-    }
+            var loopBest = setInterval(ProcessJobsInMemory, 1000);
 
-    function ProcessJobsInMemory(){
-        TableDesign();
-
-        //Output Processing Jobs
-        for(var i = 0; i < processingQueue.length; i++){
-            pJob = processingQueue[i];
-            context.fillText("Job " + pJob.id, width/8, height/7 + (i*20));
-            context.fillText(pJob.size, width/2.1, height/7 + (i*20));            
+            //Bad Testing
+                console.log(processingQueue);
+                console.log(waitingQueue);
         }
-
-        //Output Waiting Jobs
-        for(var i = 0; i < waitingQueue.length; i++){
-            wJob = waitingQueue[i];
-            context.fillText("Job " + wJob.id, width/1.25, height/9 + (i*20));            
-        }
-
-        for(var i = 0; i < processingQueue.length; i++){
-            if(processingQueue[i].time === timer){
-                console.log("Job "+ i + ":"+ processingQueue[i].time + ", "+ "Timer: " + timer);
-                // if(processingQueue[i])
-                //     processingQueue.splice(i, 1);
-            }
-        }
-        // console.log(processingQueue);
-        if(processingQueue.length === 0){
-            console.log("ProcessingQueue is empty");
-        }
-
-        timer++;
-    }
-
-    //Worst-fit Algorithm
-    function Worstfit(){
-        console.log("Worst-fit Algorithm");
-    }
-
-    //Best-fit Algorithm
-    function Bestfit(){
-        console.log("Best-fit Algorithm");
-    }
 
     //Helper Functions
-        function Reset()
-        {
+        function InitializeJobsMemoryList(){
+            for(var i = 0; i < jobListSize; i++){
+                job = jobList[i];
+    
+                for(var j = 0; j < memoryListSize; j++){
+                    memory = memoryList[j];
+                
+                    if(memory.size >= job.size && memory.status === "Free" && job.status === "Inactive" && job.used === false){
+                        memory.status = "Occupied";
+                        job.status = "Active";
+                        job.used = true;
+                        job.memoryId = memory.block;
+                        job.fragment = memory.size - job.size;
+
+                        processingQueue.push(job);
+                    }
+                }
+    
+                if(job.status === "Inactive" && job.used === false){
+                    waitingQueue.push(job);
+                }
+            }
+        }
+
+        function ProcessJobsInMemory(){
+            var temp = [], temp2 = [];
+    
+            TableDesign();
+    
+            //Check if done
+            for(var i = 0; i < processingQueue.length; i++){
+                processingQueue[i].time--;
+                if(processingQueue[i].time === 0){
+                    processingQueue[i].status = "Inactive";
+                    processingQueue[i].used = true;
+                    
+                    //Change status of Memory to "Free" when job is released
+                    for(var j = 0; j < memoryListSize; j++){
+                        if(memoryList[j].block === processingQueue[i].memoryId){
+                            memoryList[j].status = "Free";
+                        }
+                    }
+                    temp.push(processingQueue[i]);
+                }
+            }
+    
+            //Remove job if done
+            for(var j = 0; j < temp.length; j++){
+                index = processingQueue.indexOf(temp[j]);
+                processingQueue.splice(index,1);
+            }
+    
+            //Loop through the waiting queue
+            for(var i = 0; i < waitingQueue.length; i++){
+                job = waitingQueue[i];
+                for(var j = 0; j < memoryListSize; j++){
+                    memory = memoryList[j];
+    
+                    if(memory.size >= job.size && memory.status === "Free" && job.status === "Inactive" && job.used === false){
+                        memory.status = "Occupied";
+                        job.status = "Active";
+                        job.used = true;
+                        job.memoryId = memory.block;
+                        job.fragment = memory.size - job.size;
+                        
+                        temp2.push(waitingQueue[i]);
+                        processingQueue.push(job);
+                    }
+                }
+            }
+    
+            //Remove job in waiting queue, transfer to processing queue
+            for(var i = 0; i < temp2.length; i++){
+                index = waitingQueue.indexOf(temp2[i]);
+                waitingQueue.splice(index,1);
+            }
+    
+            //Bad Testing
+            if(processingQueue.length === 0){
+                console.log("ProcessingQueue is empty");
+            }
+    
+            timer++;
+        }
+
+        function Reset(){
             for(var i = 0; i < jobListSize; i++){
                 job = jobList[i];
                 job.status = "Inactive";
@@ -155,28 +205,21 @@ document.getElementById('file').onchange = function(){
                 memory.status = "Free";
             }
 
+            processingQueue = [];
             waitingQueue = [];
         }
 
-        function CheckWaitingQueue(){
-            //Check if job size is too big, then store in misfit
-            var check = false;
-            for(var i = 0; i < waitingQueue.length; i++){
-                for(var j = 0; j < memoryListSize; j++){
-                    memory = memoryList[j];
+        function IncreasingOrder(a, b){
+            return a.size - b.size;
+        }
 
-                    if(waitingQueue[i].size > memory.size){
-                        check = true;
-                    }
-                }
-                if(check === true){
-                    misFit.push(waitingQueue[i]);
-                }
-            }
+        function DecreasingOrder(a, b){
+            return b.size - a.size;
+        }
 
-            if(misFit.length !== 0){
-                console.log("Still have: " + misFit.length + " jobs not processed.");
-            }
+        //~useful
+        function StopLoop(){
+            clearInterval(loop);
         }
 
     //Button Events
@@ -195,6 +238,11 @@ document.getElementById('file').onchange = function(){
             Bestfit();
         }
 
+        btnEvaluate.onclick = function(){
+
+            alert("Show");
+        }
+
     reader.readAsText(file);
 };
 
@@ -206,11 +254,18 @@ function TableDesign(){
     context.fillRect(0,0,width, height);
     context.fillStyle = "black";
     context.font = "16px Calibri";    
-    context.fillText("PROCESSING JOBS IN MEMORY LIST",width/10,height/26);
+    context.fillText("PROCESSING JOBS IN MEMORY LIST",width/5,height/26);
     context.fillText("WAITING JOB LIST",width/1.3,height/26);
+    
+    context.fillText("MEMORY #", width/40,height/12);
+    context.fillText("JOB #", width/6.2,height/12);
+    context.fillText("TIME", width/3.4,height/12);
+    context.fillText("SIZE", width/2.3,height/12);
+    context.fillText("FRAGMENTS", width/1.8,height/12);
 
-    context.fillText("JOBS",width/8,height/12);
-    context.fillText("SIZE",width/2.1,height/12);
+    context.fillText("JOB #", width/1.38,height/12);
+    context.fillText("SIZE", width/1.12,height/12);
+    
     
     //Horizontal Line #1: Main Line    
     context.moveTo(0,height/19);
@@ -219,20 +274,59 @@ function TableDesign(){
     
     //Horizontal Line #2: Main Line 2
     context.moveTo(0,height/10);
-    context.lineTo(width/1.5,height/10);
+    context.lineTo(width,height/10);
     context.stroke();
-
-    //Vertical line # 2: Main Line    
+    
+    //Vertical line #1: Main Line    
     context.moveTo(width/1.5,0);
     context.lineTo(width/1.5,height);
     context.stroke();
+
+    //Vertical line #2: Memory List
+    context.moveTo(width/4,height/19);
+    context.lineTo(width/4,height);
+    context.stroke();
     
-    //Vertical line #1: Memory List
-    context.moveTo(width/3,height/19);
-    context.lineTo(width/3,height);
+    //Vertical line #3: Memory List    
+    context.moveTo(width/2.6,height/19);
+    context.lineTo(width/2.6,height);
+    context.stroke();
+    
+    //Vertical line #4: Memory List    
+    context.moveTo(width/1.9,height/19);
+    context.lineTo(width/1.9,height);
     context.stroke();
 
-    context.fillText("Timer: " +timer,width/50,height/26);    
+    //Vertical line #5: Memory List, first line     
+    context.moveTo(width/8.5,height/19);
+    context.lineTo(width/8.5,height);
+    context.stroke();
+
+    //Vertical line #6: Memory List, second line     
+    context.moveTo(width/1.2,height/19);
+    context.lineTo(width/1.2,height);
+    context.stroke();
+
+
+    context.fillText("Timer: " +timer,width/50,height/26);
+
+    //Output Processing Jobs
+    for(var i = 0; i < processingQueue.length; i++){
+        pJob = processingQueue[i];
+
+        context.fillText("Memory " + pJob.memoryId, width/40,height/7 + (i*20));
+        context.fillText("Job " + pJob.id, width/6.2,height/7 + (i*20));
+        context.fillText(pJob.time, width/3.38,height/7 + (i*20));
+        context.fillText(pJob.size, width/2.3,height/7 + (i*20));
+        context.fillText(pJob.fragment, width/1.8,height/7 + (i*20));
+    }
+
+    //Output Waiting Jobs
+    for(var i = 0; i < waitingQueue.length; i++){
+        wJob = waitingQueue[i];
+        context.fillText("Job " + wJob.id, width/1.38, height/7 + (i*20));
+        context.fillText(wJob.size, width/1.12,height/7 + (i*20));        
+    }
 }
 
 TableDesign();
