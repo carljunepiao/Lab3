@@ -11,14 +11,14 @@ var btnEvaluate = document.getElementById("evaluate");
 var jobList = [], memoryList = [];
 var jobListSize, memoryListSize;
 
-var waitingQueue = [], processingQueue = [];
-var timer = 0;
+var waitingQueue = [], processingQueue = [], tempWaitingQueue = [];
+var timer = 0, t = 0;
 
 //Evaluation
 var totalMemoryLocations = 50000;
 
     //Throughput
-    var throughputFirst, throughputWorst, throughputBest;
+    var throughput = 0, jobt = 0;
     var tCycleFirst, tCycleWorst, tCycleBest;
 
     //Storage Utilization
@@ -28,10 +28,10 @@ var totalMemoryLocations = 50000;
     var totalJobsQueue;
 
     //Waiting time in Queue
-    var totalWaitTimeQueue, averageWaitingTime, maximumWaitingTime;
+    var totalWaitTimeQueue = 0, averageWaitingTime, maximumWaitingTime, release = 0;
 
     //Internal Fragmentation
-    var percentageFrag;
+    var percentageFrag = 0;
 
 
 function Job(id, time, size, status, done, memoryId, fragment) {
@@ -44,11 +44,12 @@ function Job(id, time, size, status, done, memoryId, fragment) {
     this.fragment = fragment;
 }
 
-function Memory(id, size, status, job){
+function Memory(id, size, status, job, cnt){
     this.block = parseInt(id);
     this.size = parseInt(size);
     this.status = status;
     this.job = job;
+    this.count = cnt;
 }
 
 document.getElementById('file').onchange = function(){
@@ -78,7 +79,7 @@ document.getElementById('file').onchange = function(){
 
         for(var i = 0; i < tempMemList.length; i++){
             temp = tempMemList[i].split(" ");
-            memoryList[i] = new Memory(temp[0], temp[1], "Free", new Job);
+            memoryList[i] = new Memory(temp[0], temp[1], "Free", new Job, 0);
         }
         
         jobListSize = jobList.length;
@@ -88,12 +89,14 @@ document.getElementById('file').onchange = function(){
     //ALGORITHMS
         //First-fit Algorithm
         function Firstfit(){
+            console.log("First-Fit Algorithm");
             InitializeJobsMemoryList();
             loop = setInterval(ProcessJobsInMemory, 1000);
         }
 
         //Worst-fit Algorithm
         function Worstfit(){
+            console.log("Worst-Fit Algorithm");
             memoryList.sort(DecreasingOrder);
             InitializeJobsMemoryList();
             loop = setInterval(ProcessJobsInMemory, 1000);
@@ -101,6 +104,7 @@ document.getElementById('file').onchange = function(){
 
         //Best-fit Algorithm
         function Bestfit(){
+            console.log("Best-Fit Algorithm");            
             memoryList.sort(IncreasingOrder);
             InitializeJobsMemoryList();
             loop = setInterval(ProcessJobsInMemory, 1000);
@@ -114,45 +118,64 @@ document.getElementById('file').onchange = function(){
                 for(var j = 0; j < memoryListSize; j++){
                     memory = memoryList[j];
                 
-                    if(memory.size >= job.size && memory.status === "Free" && job.status === "Inactive" && job.done === false){
+                    if((memory.size >= job.size) && (memory.status === "Free") && (job.status === "Inactive") && (job.done === false)){
                         memory.status = "Occupied";
+                        memory.job = job;
+                        memory.count++;
+
                         job.status = "Active";
                         job.done = true;
                         job.memoryId = memory.block;
                         job.fragment = memory.size - job.size;
+                        percentageFrag += job.fragment;
 
                         processingQueue.push(job);
                     }
                 }
                 
-                //Wrong Implementation
                 if(job.status === "Inactive" && job.done === false){
                     waitingQueue.push(job);
                 }
             }
         }
 
-        function ProcessJobsInMemory(){ //wrong implementation
-            var temp = [], temp2 = [];
-    
+        function ProcessJobsInMemory(){
+            var temp = [], temp2 = [], orgTime;
+
             TableDesign();
-    
+            timer++;
+            
             //Check if done
             for(var i = 0; i < processingQueue.length; i++){
+                orgTime = processingQueue[i].time;
                 processingQueue[i].time--;
                 if(processingQueue[i].time === 0){
+
+                    //Bad Test
+                    console.log("Job "+ processingQueue[i].id + " is done.");
+
                     processingQueue[i].status = "Inactive";
                     processingQueue[i].done = true;
+                    totalWaitTimeQueue += orgTime;
                     
                     //Change status of Memory to "Free" when job is released
                     for(var j = 0; j < memoryListSize; j++){
                         if(memoryList[j].block === processingQueue[i].memoryId){
                             memoryList[j].status = "Free";
+                            memoryList[j].job = null;
                         }
                     }
+
                     temp.push(processingQueue[i]);
                 }
+
+                if(processingQueue[i].done){
+                    jobt++;
+                }
             }
+            
+            jobt = jobt / timer;
+            throughput += jobt;
     
             //Remove job if done
             for(var j = 0; j < temp.length; j++){
@@ -168,11 +191,16 @@ document.getElementById('file').onchange = function(){
     
                     if(memory.size >= job.size && memory.status === "Free" && job.status === "Inactive" && job.done === false){
                         memory.status = "Occupied";
+                        memory.job = job;
+                        memory.count++;
+
                         job.status = "Active";
                         job.done = true;
                         job.memoryId = memory.block;
                         job.fragment = memory.size - job.size;
-                        
+
+                        percentageFrag += job.fragment;
+
                         temp2.push(waitingQueue[i]);
                         processingQueue.push(job);
                     }
@@ -189,28 +217,46 @@ document.getElementById('file').onchange = function(){
             
             //Bad Testing
             if(processingQueue.length === 0){
-                console.log("ProcessingQueue is empty");
+                TableDesign();
                 StopLoop();
-            }
-            
-            timer++;
+                console.log("Processing Queue is now empty.");
+                console.log("_____________________________________");
+                console.log("Time Done: " + timer + "\nTotal Done Jobs: 24" + "\nAverage Throughput: " + TotalThroughput()
+                    + "\nStorage Utilization: " + "block# " +UtilCountMost() +"(most used), " + "block# " + UtilCountLeast() + "(least used)"
+                    // + "\nAverage Waiting Time: " + AveWaitingTime() 
+                    +"\nAverage Fragmentation: " + AveFragmentation()
+                );
+            }            
         }
 
-        function Reset(){
-            for(var i = 0; i < jobListSize; i++){
-                job = jobList[i];
-                job.status = "Inactive";
-                job.done = false;
-            }
+        function UtilCountMost(){
+            tmp = memoryList.sort(countOrderDec);
+            return tmp[0].block;
+        }
 
-            for(var i = 0; i < memoryListSize; i++){
-                memory = memoryList[i];
-                memory.status = "Free";
-            }
+        function UtilCountLeast(){
+            tmp = memoryList.sort(countOrderInc);
+            return tmp[0].block;
+        }
 
-            processingQueue = [];
-            waitingQueue = [];
-            timer = 0;
+        function AveFragmentation(){
+            return percentageFrag/24;
+        }
+
+        function TotalThroughput(){
+            return throughput/24;
+        }
+
+        function AveWaitingTime(){
+            return totalWaitTimeQueue/24;
+        }
+
+        function countOrderDec(a, b){
+            return b.count - a.count;
+        }
+
+        function countOrderInc(a, b){
+            return a.count - b.count;
         }
 
         function IncreasingOrder(a, b){
@@ -221,7 +267,6 @@ document.getElementById('file').onchange = function(){
             return b.size - a.size;
         }
 
-        //~useful
         function StopLoop(){
             clearInterval(loop);
         }
@@ -237,11 +282,6 @@ document.getElementById('file').onchange = function(){
 
         btnBest.onclick = function(){            
             Bestfit();
-        }
-
-        btnEvaluate.onclick = function(){
-
-            alert("Show");
         }
 
     reader.readAsText(file);
@@ -326,7 +366,7 @@ function TableDesign(){
     for(var i = 0; i < waitingQueue.length; i++){
         wJob = waitingQueue[i];
         context.fillText("Job " + wJob.id, width/1.38, height/7 + (i*20));
-        context.fillText(wJob.size, width/1.12,height/7 + (i*20));        
+        context.fillText(wJob.size, width/1.12,height/7 + (i*20));  
     }
 }
 
